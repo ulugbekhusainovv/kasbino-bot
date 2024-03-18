@@ -7,6 +7,7 @@ from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton,InlineKeyboa
 from keyboards.inline.buttons import (CheckCallBack, confirm_buttons,tasks_btn_for_admin, ForAdminPaginatorCallback, ForAdminTaskCallback,page_size,get_task, employee_list_button, EmployeeListPaginatorCallback, attendance_button, AttendancePaginatorCallback, advance_btn_for_admin, AdvanceCallback, AdvancePaginatorCallback, get_advance, filter_tasks_by_status_btns)
 from api import get_all_employee
 from data.config import URL
+import re
 def start_admin_button():
     btn = InlineKeyboardBuilder()
 
@@ -18,6 +19,10 @@ def start_admin_button():
     btn.adjust(1)
     return btn.as_markup()
 
+
+def html_escape(text):
+    escape_chars = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}
+    return re.sub(r'[&<>"\']', lambda match: escape_chars[match.group(0)], text)
 
 
 def advance_employees():
@@ -35,7 +40,7 @@ def advance_employees():
 
 def employee__error_list_button():
     btn = InlineKeyboardBuilder()
-    btn.button(text="Xodim qo'shish", web_app=WebAppInfo(url="https://xusainov.pythonanywhere.com/"))
+    btn.button(text="Xodim qo'shish", web_app=WebAppInfo(url="https://xusainov.pythonanywhere.com/add_employee/"))
     btn.button(text="⏪Orqaga", callback_data="back_to_home")
     btn.adjust(1)
     return btn.as_markup()
@@ -43,14 +48,16 @@ def employee__error_list_button():
 
 @dp.message(CommandStart(), IsAdmin())
 async def start_admin(message: types.Message):
-    await message.answer("Salom administration", reply_markup=start_admin_button())
+    full_name =  html_escape(message.from_user.full_name)
+    await message.answer(f"Assalomu alaykum {full_name} Kasbino Manager Botiga hush kelibsiz! kuningiz xayrli o'tsin",reply_markup=start_admin_button())
+
 
 @dp.callback_query(lambda query: query.data.startswith("back_to_home"))
 async def back_to_home_btn(callback_query: types.CallbackQuery):
     try:
         await bot.edit_message_text(chat_id=callback_query.message.chat.id,
                                         message_id=callback_query.message.message_id,
-                                        text="Assalamu alaykum",reply_markup=start_admin_button())
+                                        text="Assalamu alaykum Admin Kasbino Manager Botiga hush kelibsiz! kuningiz xayrli o'tsin",reply_markup=start_admin_button())
     except Exception as e:
         await bot.send_message('2083239343', text=f'{e}')
 
@@ -60,7 +67,7 @@ async def advance_btns(callback_query: types.CallbackQuery):
     try:
         await bot.edit_message_text(chat_id=callback_query.message.chat.id,
                                         message_id=callback_query.message.message_id,
-                                        text="Avans oluvchilar ro’yxati",reply_markup=advance_btn_for_admin())
+                                        text="Avans oluvchilar ro’yxati aniqroq ma'lumot olish uchun ustiga bosing",reply_markup=advance_btn_for_admin())
     except Exception as e:
         await bot.send_message('2083239343', text=f'{e}')
 
@@ -79,7 +86,7 @@ async def xodimlar_btn(callback_query: types.CallbackQuery):
     try:
         await callback_query.message.edit_text(text="Xodimlar ro’yxati",reply_markup=employee_list_button())
     except Exception as e:
-        await callback_query.message.edit_text(text="Xodimlar ro’yxati",reply_markup=employee__error_list_button(callback_query.from_user.id))
+        await callback_query.message.edit_text(text="Xodimlar ro’yxati",reply_markup=employee__error_list_button())
         await callback_query.answer(f"Xatolik Qaysidir Xodim botga start bosmagan", show_alert=True)
 
 

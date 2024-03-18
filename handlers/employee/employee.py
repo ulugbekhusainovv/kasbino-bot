@@ -36,7 +36,7 @@ def start_button():
 @dp.message(CommandStart(), IsEmployee())
 async def start_bot(message:types.Message):
     full_name =  html_escape(message.from_user.full_name)
-    await message.answer(f"Assalomu alaykum ishchi {full_name}!",reply_markup=start_button())
+    await message.answer(f"Assalomu alaykum {full_name} Kasbino Manager Botiga hush kelibsiz!",reply_markup=start_button())
 
 def home_back_btn():
     btn = InlineKeyboardBuilder()
