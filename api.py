@@ -90,7 +90,6 @@ def get_company_structures():
     except:
         return []
 
-
 def get_all_employee():
     try:
         response = requests.get(url=f"{URL}/employees/")
@@ -103,7 +102,6 @@ def get_admin_employees():
     all_employees = get_all_employee()
     admin_employees = [employee for employee in all_employees if employee.get('position') == 'admin']
     return admin_employees
-
 
 
 def get_manager_employees():
@@ -144,7 +142,6 @@ def get_all_task():
         return json.loads(response.text)
     except:
         return []
-
 
 def get_task(id):
     try:
@@ -295,3 +292,18 @@ def post_attendance(employee_id):
             return {}
     except:
         return {}
+    
+def get_all_category_info():
+    try:
+        response = requests.get(url=f"{URL}/category_info/")
+        return json.loads(response.text)
+    except:
+        return []
+    
+
+def get_all_category_structure():
+    try:
+        response = requests.get(url=f"{URL}/category_structure/")
+        return json.loads(response.text)
+    except:
+        return []

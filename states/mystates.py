@@ -26,3 +26,11 @@ class Send_to_Admin(StatesGroup):
 class Send_Info_to_Admin(StatesGroup):
     location = State()
     info = State()
+
+class Work_start_to_Admin(StatesGroup):
+    location = State()
+    info = State()
+
+class Work_finish_to_Admin(StatesGroup):
+    location = State()
+    info = State()

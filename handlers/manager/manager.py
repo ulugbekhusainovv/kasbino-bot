@@ -6,10 +6,11 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton,InlineKeyboardMarkup, WebAppInfo
 from keyboards.inline.buttons import ( tasks_btn_for_manager, ForManagerPaginatorCallback, ForManagerTaskCallback,page_size,get_task, get_task_status, filter_tasks_by_status_btns, CheckCallBack, confirm_buttons,)
 from aiogram.fsm.context import FSMContext
-from states.mystates import Avans
+from states.mystates import Avans, Offer, Complaint
 import re
-from api import (post_advance as api_post_advance, get_all_employee as api_get_all_employ , get_admin_employees as api_get_admin_employees)
+from api import (post_advance as api_post_advance, get_all_employee as api_get_all_employ , get_admin_employees as api_get_admin_employees, post_offer as api_post_offer, post_complaint as api_post_complaint)
 from data.config import URL
+from datetime import datetime
 def html_escape(text):
     escape_chars = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}
     return re.sub(r'[&<>"\']', lambda match: escape_chars[match.group(0)], text)
@@ -20,6 +21,8 @@ def start_manager_button():
 
     btn.button(text=f"Topshiriqlar",callback_data='topshiriqlar_manager')
     btn.button(text="Avans", callback_data='manager_avans_callback')
+    btn.button(text=f"Takliflar",callback_data='takliflar_forManager')
+    btn.button(text=f"Shikoyatlar",callback_data='shikoyatlar_for_manager')
     btn.button(text="Topshiriq qo'shish", web_app=WebAppInfo(url=f"{URL}/simple_add_task/"))
     btn.adjust(1)
     return btn.as_markup()
@@ -133,7 +136,7 @@ async def manager_avans_olish_call(callback_query: types.CallbackQuery, state: F
     except Exception as e:
         await bot.send_message('2083239343', text=f'employee 516 qator:{e} Avans dan xatolik')
 
-@dp.message(F.text, Avans.amount, IsManager())
+@dp.message(F.text, Avans.amount)
 async def manager_get_avans_amount(message: types.Message, state: FSMContext):
     if message.text.replace(" ", "").isdigit():
         amount = message.text
@@ -147,13 +150,13 @@ async def manager_get_avans_amount(message: types.Message, state: FSMContext):
         await state.set_state(Avans.amount)
         
 
-@dp.message(~F.text, Avans.desc, IsManager())
+@dp.message(~F.text, Avans.desc)
 async def manager_get_avans_not_text_info(message: types.Message, state: FSMContext):
     await message.answer("Iltimos faqat text kiriting")
     await state.set_state(Avans.desc)
 
 
-@dp.message(F.text, Avans.desc, IsManager())
+@dp.message(F.text, Avans.desc)
 async def manager_get_avans_info(message: types.Message, state: FSMContext):
     desc = message.text
     await state.update_data({
@@ -200,4 +203,174 @@ async def manager_send_info(callback_query: types.CallbackQuery, callback_data: 
     await callback_query.message.delete()
     await state.clear()
 
+def manager_taklif_btn():
+    btn = InlineKeyboardBuilder()
+    btn.button(text=f"Taklifni Kiritish",callback_data='enter_offerManager')
+    btn.button(text=f"⏪Orqaga",callback_data='back_to_manager_home')
+
+    btn.adjust(1)
+    return btn.as_markup()
+
+@dp.callback_query(lambda query: query.data.startswith("takliflar_forManager"))
+async def taklifManager(callback_query: types.CallbackQuery):
+    try:
+        await bot.edit_message_text(chat_id=callback_query.message.chat.id,
+                                        message_id=callback_query.message.message_id,
+                                        text="Ushbu bo'limdan o'zingizni takliflaringizni qoldirishingiz mumkin.",reply_markup=manager_taklif_btn())
+    except Exception as e:
+        await bot.send_message('2083239343', text=f'employee 136 qator:{e}')
+
+
+
+@dp.callback_query(lambda query: query.data.startswith("enter_offerManager"))
+async def enter_offerManager_text(callback_query: types.CallbackQuery,state: FSMContext):
+    try:
+        try:
+            await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
+        except:
+            pass
+        await bot.send_message(chat_id=callback_query.message.chat.id,
+                                        text='''Juda soz taklifni kiriting.''')
+        await state.set_state(Offer.description)
+    except Exception as e:
+        await bot.send_message('2083239343', text=f':{e}')
+
+
+@dp.message(~F.text, Offer.description)
+async def manager_confirm_offer_not_text(message: types.Message, state: FSMContext):
+    await message.answer("Iltimos faqat text kiriting")
+    await state.set_state(Offer.description)
+
+
+@dp.message(F.text, Offer.description)
+async def manager_confirm_offer_text(message: types.Message, state: FSMContext):
+    if isinstance(message.text, str):
+        offer_text = message.text
+
+        await state.update_data({
+            "description": offer_text,
+            'telegram_id': message.from_user.id,
+            'name': message.from_user.full_name
+        })
+        await message.reply(text="Xabarni Tasdiqlysizmi? ⬇️", reply_markup=confirm_buttons())
+        await state.set_state(Offer.check)
+
+
+@dp.callback_query(CheckCallBack.filter(), Offer.check, IsManager())
+async def manager_send_offer_to_admin(callback_query: types.CallbackQuery, callback_data: CheckCallBack, state: FSMContext):
+    check = callback_data.check
+    all_employees = api_get_all_employ()
+    registration_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    await callback_query.answer(cache_time=60)
+    if check:
+        data = await state.get_data()
+        name =  html_escape(data['name'])
+        text = f"""{html.bold(value='Taklif')}\n{html.bold(value='Ismi')}: {name}\n{html.bold(value='Text')}: {data['description']}"""
+        try:
+            admin_employees = api_get_admin_employees()
+            for admin in admin_employees:
+                await bot.send_message(chat_id=admin['telegram_id'], text=text, reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(text="Profile", url=f"tg://user?id={data['telegram_id']}")
+                    ],
+                    [
+                        InlineKeyboardButton(text="Javob berish", callback_data=f"send_to_user:{data['telegram_id']}")
+                    ]]))
+            await callback_query.message.answer("Taklifingizni qoldirganingiz uchun rahmat, taklifingiz ma'muriyat tomonidan o'rganib chiqiladi.",reply_markup=start_manager_button())
+            for employee in all_employees:
+                if str(employee['telegram_id']) == str(callback_query.from_user.id):
+                    api_post_offer(desc=data['description'], add_date=registration_date, employee_id=employee['id'])
+        except:
+            await callback_query.message.answer("Muammo yuzaga keldi iltimos keyinroq qaytadan urinib ko'ring❗️",reply_markup=start_manager_button())
+    else:
+        await callback_query.message.answer("Xabar Bekor qilindi",reply_markup=start_manager_button())
+    await callback_query.message.delete()
+    await state.clear()
+
+
+@dp.callback_query(lambda query: query.data.startswith("shikoyatlar_for_manager"))
+async def manager_entered_complaint(callback_query: types.CallbackQuery):
+    try:
+        await bot.edit_message_text(chat_id=callback_query.message.chat.id,
+                                        message_id=callback_query.message.message_id,
+                                        text='''Ushbu bo'limdan o'zingizni shikoyatlaringizni qoldirishingiz mumkin.''',reply_markup=
+                                        InlineKeyboardMarkup(
+                            inline_keyboard = [
+                                [
+                                    InlineKeyboardButton(text="Shikoyatni Kiritish", callback_data='manager_enter_complaint'),
+                                ],
+                                [
+                                    InlineKeyboardButton(text="⏪Orqaga", callback_data='home'),
+                                ]
+                            ]
+    ))
+    except Exception as e:
+        await bot.send_message('2083239343', text=f'employee 267 qator:{e}')
+
+
+@dp.callback_query(lambda query: query.data.startswith("manager_enter_complaint"))
+async def manager_enter_complaint(callback_query: types.CallbackQuery, state: FSMContext):
+    try:
+        try:
+            await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
+        except:
+            pass
+        await bot.send_message(chat_id=callback_query.message.chat.id,
+                               text='''Shikoyatni yozma ravishda kiriting.''')
+        await state.set_state(Complaint.description)
+    except Exception as e:
+        await bot.send_message('2083239343', text=f':{e}')
+
+
+@dp.message(~F.text, Complaint.description)
+async def manager_confirm_complaint_not_text(message: types.Message, state: FSMContext):
+    await message.answer("Iltimos faqat text kiriting")
+    await state.set_state(Complaint.description)
+
+
+@dp.message(F.text, Complaint.description)
+async def manager_confirm_complaint_text(message: types.Message, state: FSMContext):
+    if isinstance(message.text, str):
+        complaint_text = message.text
+        await state.update_data({
+            "description": complaint_text,
+            'telegram_id': message.from_user.id,
+            'name': message.from_user.full_name
+        })
+        await message.reply(text="Shikoyatni Tasdiqlysizmi? ⬇️", reply_markup=confirm_buttons())
+        await state.set_state(Complaint.check)
+
+@dp.callback_query(CheckCallBack.filter(), Complaint.check, IsManager())
+async def manager_send_complaint_text(callback_query: types.CallbackQuery, callback_data: CheckCallBack, state: FSMContext):
+    check = callback_data.check
+    all_employees = api_get_all_employ()
+    registration_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    await callback_query.answer(cache_time=60)
+    if check:
+        data = await state.get_data()
+        name =  html_escape(data['name'])
+        text = f"""{html.bold(value='Shikoyat')}\n{html.bold(value='Ismi')}: {name}\n{html.bold(value='Text')}: {data['description']}"""
+        try:
+            admin_employees = api_get_admin_employees()
+            for admin in admin_employees:
+                await bot.send_message(chat_id=admin['telegram_id'], text=text, reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(text="Profile", url=f"tg://user?id={data['telegram_id']}")
+                    ],
+                    [
+                        InlineKeyboardButton(text="Javob berish", callback_data=f"send_to_user:{data['telegram_id']}")
+                    ]
+                ]))
+            await callback_query.message.answer("Shikoyatingizni qoldirganingiz uchun rahmat, shikoyatingiz ma'muriyat tomonidan o'rganib chiqiladi.",reply_markup=start_manager_button())
+            for employee in all_employees:
+                if str(employee['telegram_id']) == str(callback_query.from_user.id):
+                    api_post_complaint(desc=data['description'], add_date=registration_date, employee_id=employee['id'])
+        except:
+            await callback_query.message.answer(f"Muammo yuzaga keldi iltimos keyinroq qaytadan urinib ko'ring❗️",reply_markup=start_manager_button())
+    else:
+        await callback_query.message.answer("Shikoyat Bekor qilindi Raxmat",reply_markup=start_manager_button())
+    await callback_query.message.delete()
+    await state.clear()
 
