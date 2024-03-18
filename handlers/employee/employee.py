@@ -88,6 +88,7 @@ async def tafsifbtn(callback_query: types.CallbackQuery):
                     else:
                         await bot.send_message(chat_id=callback_query.message.chat.id, text=tafsir_text, reply_markup=delte_msg_to_home_btn())
         except Exception as e:
+            await bot.send_message(chat_id=callback_query.message.chat.id, text="Xatolik yuz berdi iltimos keyinroq qayta urinib ko'ring")
             await bot.send_message('2083239343', text=f'employee 80 qator:{e}')
     else:
         await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
@@ -100,7 +101,7 @@ async def homebtn(callback_query: types.CallbackQuery):
         updated_markup = start_button()
         await bot.edit_message_text(chat_id=callback_query.message.chat.id,
                                         message_id=callback_query.message.message_id,
-                                        text="Assalamu alaykum bosh sahifa",reply_markup=updated_markup)
+                                        text="Assalamu alaykum Kasbino Manager Botiga hush kelibsiz!",reply_markup=updated_markup)
     except Exception as e:
         await bot.send_message('2083239343', text=f'employee 94 qator:{e}')
 
@@ -153,6 +154,7 @@ async def tafsifbtn(callback_query: types.CallbackQuery):
                     else:
                         await bot.send_message(chat_id=callback_query.message.chat.id, text=struktura_text, reply_markup=delte_msg_to_home_btn())
         except Exception as e:
+            await bot.send_message(chat_id=callback_query.message.chat.id, text="Xatolik yuz berdi iltimos keyinroq qayta urinib ko'ring")
             await bot.send_message('2083239343', text=f':{e}')
     else:
         await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
@@ -176,7 +178,6 @@ async def takliflar_btn(callback_query: types.CallbackQuery):
                                         text="Ushbu bo'limdan o'zingizni takliflaringizni qoldirishingiz mumkin.",reply_markup=updated_markup)
     except Exception as e:
         await bot.send_message('2083239343', text=f'employee 136 qator:{e}')
-
 
 
 @dp.callback_query(lambda query: query.data.startswith("send_to_user:"))
