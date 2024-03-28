@@ -24,8 +24,8 @@ def start_button():
 
     btn.button(text=f"Tafsif",callback_data='tafsif_list_for_employee')
     btn.button(text=f"Struktura",callback_data='struktura_list_for_employee')
-    btn.button(text=f"Takliflar",callback_data='takliflar_for_employee')
-    btn.button(text=f"Shikoyatlar",callback_data='shikoyatlar_for_employee')
+    btn.button(text=f"Taklif",callback_data='takliflar_for_employee')
+    btn.button(text=f"Shikoyat",callback_data='shikoyatlar_for_employee')
     btn.button(text=f"Davomat",callback_data='davomat_for_employee')    
     btn.button(text=f"Avans",callback_data='avans_callback_for_employee')
     btn.button(text=f"Topshiriqlar",callback_data='topshiriqlar_list_for_employee')
@@ -53,15 +53,20 @@ def delte_msg_to_home_btn():
     btn.adjust(1)
     return btn.as_markup()
 
+
 def tafsif_category_btn():
     btn = InlineKeyboardBuilder()
-    all_category_info = get_all_category_info()
-    for category in all_category_info:
-        btn.button(text=f"{category['name']}",callback_data=f"tafsif_for_employee_{category['id']}")
+    company_info = api_get_company_info()
+    if company_info:
+        for info in company_info:
+            btn.button(text=info['category']['name'],callback_data=f"tafsif_for_employee_{info['category']['id']}" )
+    else:
+        btn.button(text="Topilmadi", callback_data="infoNotFound")
     btn.button(text=f"⏪Orqaga",callback_data='home')
-
     btn.adjust(1)
     return btn.as_markup()
+
+
 
 @dp.callback_query(lambda query: query.data.startswith("tafsif_list_for_employee"))
 async def tafsifbtn(callback_query: types.CallbackQuery):
@@ -75,9 +80,9 @@ async def tafsifbtn(callback_query: types.CallbackQuery):
     company_info = api_get_company_info()
     if company_info:
         try:
-            await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
             for info in company_info:
                 if info['category']['id'] == category_id:
+                    await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
                     tafsir_text = info['text'][:1024] if info['text'] else "Mavjud emas"
                     if info['pdf']:
                         await bot.send_document(chat_id=callback_query.message.chat.id, document=f"{URL}{info['pdf']}", caption=tafsir_text, reply_markup=delte_msg_to_home_btn())
@@ -98,11 +103,11 @@ async def tafsifbtn(callback_query: types.CallbackQuery):
 @dp.callback_query(lambda query: query.data.startswith("home"))
 async def homebtn(callback_query: types.CallbackQuery):
     try:
-        updated_markup = start_button()
         await bot.edit_message_text(chat_id=callback_query.message.chat.id,
                                         message_id=callback_query.message.message_id,
-                                        text="Assalamu alaykum Kasbino Manager Botiga hush kelibsiz!",reply_markup=updated_markup)
+                                        text="Assalamu alaykum Kasbino Manager Botiga hush kelibsiz!",reply_markup=start_button())
     except Exception as e:
+        await bot.send_message(chat_id=callback_query.message.chat.id, text="Xatolik yuz berdi iltimos keyinroq qayta urinib ko'ring")
         await bot.send_message('2083239343', text=f'employee 94 qator:{e}')
 
 
@@ -120,13 +125,20 @@ async def homebtn(callback_query: types.CallbackQuery):
 
 def struktura_category_btn():
     btn = InlineKeyboardBuilder()
-    all_category_structure = get_all_category_structure()
-    for category in all_category_structure:
-        btn.button(text=f"{category['name']}",callback_data=f"struktura_for_employee_{category['id']}")
+    company_structure = api_get_company_structures()
+    if company_structure:
+        for struktura in company_structure:
+            btn.button(text=struktura['category']['name'],callback_data=f"struktura_for_employee_{struktura['category']['id']}" )
+    else:
+        btn.button(text="Topilmadi", callback_data="infoNotFound")
     btn.button(text=f"⏪Orqaga",callback_data='home')
-
     btn.adjust(1)
     return btn.as_markup()
+
+
+@dp.callback_query(lambda query: query.data.startswith("infoNotFound"))
+async def EmployeeInfo_notFound(callback_query: types.CallbackQuery):
+    await callback_query.answer("Afsus ma'lumot topilmadi😔", show_alert=True)
 
 
 @dp.callback_query(lambda query: query.data.startswith("struktura_list_for_employee"))
@@ -141,9 +153,9 @@ async def tafsifbtn(callback_query: types.CallbackQuery):
     company_structure = api_get_company_structures()
     if company_structure:
         try:
-            await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
             for struktura in company_structure:
                 if struktura['category']['id'] == category_id:
+                    await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
                     struktura_text = struktura['text'][:1024] if struktura['text'] else "Mavjud emas"
                     if struktura['pdf']:
                         await bot.send_document(chat_id=callback_query.message.chat.id, document=f"{URL}{struktura['pdf']}", caption=struktura_text, reply_markup=delte_msg_to_home_btn())
@@ -446,6 +458,7 @@ async def work_startedFuncion(callback_query: types.CallbackQuery, state: FSMCon
     try:
         await bot.send_message(chat_id=callback_query.message.chat.id, text="Juda yaxshi ishni boshlaganligiz ma'lumotni kiriting birinchi bo'lib manzilni kitiring")
         await state.set_state(Work_start_to_Admin.location)
+        await callback_query.answer(cache_time=60)
     except Exception as e:
         await bot.send_message('2083239343', text=f'employee 657 qator:{e}')
 
@@ -501,13 +514,14 @@ async def Work_start_to_Admin_Info(message: types.Message, state: FSMContext):
                                                     InlineKeyboardButton(text="Javob berish", callback_data=f'send_to_user:{message.from_user.id}')
                                                 ]
                                                 ]))
-            await message.answer("Juda soz endi ishni tugatgangizdan so'ng pastdagi Ishni Tugatdim tugmasini bosing⤵️",reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Ishni tugatdim✅",callback_data="work_finished")]]))
-            await bot.pin_chat_message(chat_id=message.chat.id, 
-                                    message_id=message.message_id,disable_notification=False)
+                
+            sent_message =  await bot.send_message(chat_id=message.chat.id,text="Juda soz endi ishni tugatgangizdan so'ng pastdagi Ishni Tugatdim tugmasini bosing⤵️",reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Ishni tugatdim✅",callback_data="work_finished")]]))
+            await bot.pin_chat_message(chat_id=message.chat.id,
+                                    message_id=sent_message.message_id,disable_notification=False)
         else:
             await message.answer("Xabarni qabul qiluvchi Managerlar topilmadi 🥹 keyinroq qayta urinib ko'ring")
     except Exception as e:
-        await message.answer(f"Muammo yuzaga keldi iltimos keyinroq qaytadan urinib ko'ring❗️\n{e}")
+        await message.answer(f"Muammo yuzaga keldi iltimos keyinroq qaytadan urinib ko'ring❗️")
     await state.clear()
 
 # __------------ ----------------------------------------------------------------
@@ -515,8 +529,10 @@ async def Work_start_to_Admin_Info(message: types.Message, state: FSMContext):
 @dp.callback_query(lambda query: query.data.startswith("work_finished"))
 async def work_finishedFuncion(callback_query: types.CallbackQuery, state: FSMContext):
     try:
+        await bot.unpin_chat_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
         await bot.send_message(chat_id=callback_query.message.chat.id, text="Juda yaxshi ishni tugatganingiz haqida ma'lumotni kiriting birinchi bo'lib manzilni")
         await state.set_state(Work_finish_to_Admin.location)
+        await callback_query.answer(cache_time=60)
     except Exception as e:
         await bot.send_message('2083239343', text=f'employee 657 qator:{e}')
 
@@ -531,7 +547,7 @@ async def work_finished_send_location(message: types.Message, state: FSMContext)
         all_manager = api_get_manager_employees()
         if all_manager:
             for manager in all_manager:
-                await bot.copy_message(chat_id=manager['telegram_id'],from_chat_id=message.chat.id, message_id=message.message_id, reply_markup=InlineKeyboardMarkup(
+                await bot.send_location(chat_id=manager['telegram_id'], latitude=message.location.latitude, longitude=message.location.longitude,reply_markup=InlineKeyboardMarkup(
                                                     inline_keyboard=[
                                                 [
                                                     InlineKeyboardButton(text="Profile", url=f'tg://user?id={message.from_user.id}')
@@ -541,6 +557,9 @@ async def work_finished_send_location(message: types.Message, state: FSMContext)
                                                 ]
                                                 ]))
             await message.answer("Manzil uzatildi raxmat endi qisqacha ma'lumotni kitiring masalan: rasm yoki video")
+            await state.update_data({
+                'reply_message_id': message.message_id,
+            })
             await state.set_state(Work_finish_to_Admin.info)
         else:
             await message.answer("Xabarni qabul qiluvchi Managerlar topilmadi 🥹 keyinroq qayta urinib ko'ring")
@@ -563,6 +582,7 @@ async def work_finished_succes_info(message: types.Message, state: FSMContext):
             employee_name = html.link(value=employee['full_name'], link=f"tg://user?id={message.from_user.id}")
             data = await state.get_data()
             work_started_time = data.get('work_started_time', 'Nomalum')
+            reply_message_id = data['reply_message_id']
             finished_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             for manager in all_manager:
                 await bot.copy_message(chat_id=manager['telegram_id'],caption=f"{message.html_text}\n{employee_name} Ishni yakunladi\n🕐Boshlangan vaqti: {work_started_time}\n🕐Tugatgan vaqti: {finished_time}", from_chat_id=message.chat.id, message_id=message.message_id, reply_markup=InlineKeyboardMarkup(
@@ -570,12 +590,14 @@ async def work_finished_succes_info(message: types.Message, state: FSMContext):
                                                 [
                                                     InlineKeyboardButton(text="Javob berish", callback_data=f'send_to_user:{message.from_user.id}')
                                                 ]
-                                                ]))
+                                                ]),
+                                                allow_sending_without_reply=True,
+                                                reply_to_message_id=reply_message_id)
             await message.answer("Juda soz Ishni yakunladingiz keyingi ishni boshlash uchun Davomat va Ishni boshladim👋 tugmasini ni bosing keyingi ishlaringizda omad tilayman😊")
         else:
             await message.answer("Xabarni qabul qiluvchi Managerlar topilmadi 🥹 keyinroq qayta urinib ko'ring")
-    except:
-        await message.answer(f"Muammo yuzaga keldi iltimos keyinroq qaytadan urinib ko'ring❗️")
+    except Exception as e:
+        await message.answer(f"Muammo yuzaga keldi iltimos keyinroq qaytadan urinib ko'ring❗️ {e}")
     await state.clear()
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -852,6 +874,8 @@ async def Send_Info_to_Admin_func(callback_query: types.CallbackQuery, state: FS
     'task_id': task_id,
     })
     try:
+        await bot.unpin_chat_message(chat_id=callback_query.message.chat.id, 
+                                        message_id=callback_query.message.message_id)
         await bot.send_message(chat_id=callback_query.message.chat.id,
                                text="Juda soz manzilni kiriting")
         await state.set_state(Send_Info_to_Admin.location)

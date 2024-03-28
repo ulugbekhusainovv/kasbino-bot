@@ -8,7 +8,7 @@ from keyboards.inline.buttons import ( tasks_btn_for_manager, ForManagerPaginato
 from aiogram.fsm.context import FSMContext
 from states.mystates import Avans, Offer, Complaint
 import re
-from api import (post_advance as api_post_advance, get_all_employee as api_get_all_employ , get_admin_employees as api_get_admin_employees, post_offer as api_post_offer, post_complaint as api_post_complaint)
+from api import (post_advance as api_post_advance, get_all_employee as api_get_all_employ , get_admin_employees as api_get_admin_employees, post_offer as api_post_offer, post_complaint as api_post_complaint, get_company_info as api_get_company_info, get_all_category_info, get_all_category_structure,get_company_structures as api_get_company_structures )
 from data.config import URL
 from datetime import datetime
 def html_escape(text):
@@ -19,12 +19,15 @@ def html_escape(text):
 def start_manager_button():
     btn = InlineKeyboardBuilder()
 
+    btn.button(text=f"Tafsif",callback_data='tafsif_list_manager')
+    btn.button(text=f"Struktura",callback_data='struktura_list_manager')
     btn.button(text=f"Topshiriqlar",callback_data='topshiriqlar_manager')
     btn.button(text="Avans", callback_data='manager_avans_callback')
-    btn.button(text=f"Takliflar",callback_data='takliflar_forManager')
-    btn.button(text=f"Shikoyatlar",callback_data='shikoyatlar_for_manager')
+    btn.button(text=f"Taklif",callback_data='takliflar_forManager')
+    btn.button(text=f"Shikoyat",callback_data='shikoyatlar_for_manager')
     btn.button(text="Topshiriq qo'shish", web_app=WebAppInfo(url=f"{URL}/simple_add_task/"))
-    btn.adjust(1)
+    btn.adjust(1,2,1,2,1)
+    # btn.adjust(1)
     return btn.as_markup()
 
 
@@ -301,7 +304,7 @@ async def manager_entered_complaint(callback_query: types.CallbackQuery):
                                     InlineKeyboardButton(text="Shikoyatni Kiritish", callback_data='manager_enter_complaint'),
                                 ],
                                 [
-                                    InlineKeyboardButton(text="⏪Orqaga", callback_data='home'),
+                                    InlineKeyboardButton(text="⏪Orqaga", callback_data='back_to_manager_home'),
                                 ]
                             ]
     ))
@@ -374,3 +377,124 @@ async def manager_send_complaint_text(callback_query: types.CallbackQuery, callb
     await callback_query.message.delete()
     await state.clear()
 
+# ----------------------------------------------------------------
+
+def delte_to_homepage():
+    btn = InlineKeyboardBuilder()
+    btn.button(text=f"⏪Orqaga",callback_data='delte_to_homepage')
+
+    btn.adjust(1)
+    return btn.as_markup()
+
+@dp.callback_query(lambda query: query.data.startswith("delte_to_homepage"))
+async def manager_homebtn(callback_query: types.CallbackQuery):
+    try:
+        await bot.delete_message(chat_id=callback_query.message.chat.id,
+                                 message_id=callback_query.message.message_id)
+        await bot.send_message(chat_id=callback_query.message.chat.id,
+                                        text="Assalamu alaykum bosh sahifa",reply_markup=start_manager_button())
+    except Exception as e:
+        await bot.send_message('2083239343', text=f'employee 105 qator:{e}')
+        
+
+
+def manager_tafsif_category_btn():
+    btn = InlineKeyboardBuilder()
+    company_info = api_get_company_info()
+    if company_info:
+        for info in company_info:
+            btn.button(text=info['category']['name'],callback_data=f"tafsif_forManager_{info['category']['id']}" )
+    else:
+        btn.button(text="Topilmadi", callback_data="topilmadi")
+    # all_category_info = get_all_category_info()
+    # for category in all_category_info:
+    #     btn.button(text=f"{category['name']}",callback_data=f"tafsif_forManager_{category['id']}")
+    btn.button(text=f"⏪Orqaga",callback_data='back_to_manager_home')
+    btn.adjust(1)
+    return btn.as_markup()
+
+@dp.callback_query(lambda query: query.data.startswith("tafsif_list_manager"))
+async def manager_tafsifbtn(callback_query: types.CallbackQuery):
+    await bot.edit_message_text(chat_id=callback_query.message.chat.id, 
+                                message_id=callback_query.message.message_id,
+                                text="Tafsifni ko'rish uchun kategoriyasini ustiga bosing", reply_markup=manager_tafsif_category_btn())
+
+@dp.callback_query(lambda query: query.data.startswith("tafsif_forManager_"))
+async def managertafsifbtn(callback_query: types.CallbackQuery):
+    category_id = int(callback_query.data.split('_')[-1])
+    company_info = api_get_company_info()
+    if company_info:
+        try:
+            await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
+            for info in company_info:
+                if info['category']['id'] == category_id:
+                    tafsir_text = info['text'][:1024] if info['text'] else "Mavjud emas"
+                    if info['pdf']:
+                        await bot.send_document(chat_id=callback_query.message.chat.id, document=f"{URL}{info['pdf']}", caption=tafsir_text, reply_markup=delte_to_homepage())
+                    elif info['image']:
+                        await bot.send_photo(chat_id=callback_query.message.chat.id, photo=f"{URL}{info['image']}", caption=tafsir_text, reply_markup=delte_to_homepage())
+                    elif info['video']:
+                        await bot.send_video(chat_id=callback_query.message.chat.id, video=f"{URL}{info['video']}", caption=tafsir_text, reply_markup=delte_to_homepage())
+                    else:
+                        await bot.send_message(chat_id=callback_query.message.chat.id, text=tafsir_text, reply_markup=delte_to_homepage())
+        except Exception as e:
+            await bot.send_message(chat_id=callback_query.message.chat.id, text="Xatolik yuz berdi iltimos keyinroq qayta urinib ko'ring")
+            await bot.send_message('2083239343', text=f'employee 80 qator:{e}')
+    else:
+        await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
+        await callback_query.answer("Tafsif topilmadi", show_alert=True)
+        await bot.send_message(chat_id=callback_query.message.chat.id, text=f"Tafsif topilmadi", reply_markup=delte_to_homepage())
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++
+
+def managerstruktura_category_btn():
+    btn = InlineKeyboardBuilder()
+    company_structure = api_get_company_structures()
+    if company_structure:
+        for struktura in company_structure:
+            btn.button(text=struktura['category']['name'],callback_data=f"struktura_forManager_{struktura['category']['id']}" )
+    else:
+        btn.button(text="Topilmadi", callback_data="topilmadi")
+    # all_category_structure = get_all_category_structure()
+    # for category in all_category_structure:
+    #     btn.button(text=f"{category['name']}",callback_data=f"struktura_forManager_{category['id']}")
+    btn.button(text=f"⏪Orqaga",callback_data='back_to_manager_home')
+    btn.adjust(1)
+    return btn.as_markup()
+
+
+@dp.callback_query(lambda query: query.data.startswith("topilmadi"))
+async def info_notFound(callback_query: types.CallbackQuery):
+    await callback_query.answer("Afsus ma'lumot topilmadi😔", show_alert=True)
+
+@dp.callback_query(lambda query: query.data.startswith("struktura_list_manager"))
+async def struktura_category(callback_query: types.CallbackQuery):
+    await bot.edit_message_text(chat_id=callback_query.message.chat.id, 
+                                message_id=callback_query.message.message_id,
+                                text="Strukturani ko'rish uchun kategoriyasini ustiga bosing", reply_markup=managerstruktura_category_btn())
+
+@dp.callback_query(lambda query: query.data.startswith("struktura_forManager_"))
+async def manager_struktura_btn(callback_query: types.CallbackQuery):
+    category_id = int(callback_query.data.split('_')[-1])
+    company_structure = api_get_company_structures()
+    if company_structure:
+        try:
+            for struktura in company_structure:
+                if struktura['category']['id'] == category_id:
+                    await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
+                    struktura_text = struktura['text'][:1024] if struktura['text'] else "Mavjud emas"
+                    if struktura['pdf']:
+                        await bot.send_document(chat_id=callback_query.message.chat.id, document=f"{URL}{struktura['pdf']}", caption=struktura_text, reply_markup=delte_to_homepage())
+                    elif struktura['image']:
+                        await bot.send_photo(chat_id=callback_query.message.chat.id, photo=f"{URL}{struktura['image']}", caption=struktura_text, reply_markup=delte_to_homepage())
+                    elif struktura['video']:
+                        await bot.send_video(chat_id=callback_query.message.chat.id, video=f"{URL}{struktura['video']}", caption=struktura_text, reply_markup=delte_to_homepage())
+                    else:
+                        await bot.send_message(chat_id=callback_query.message.chat.id, text=struktura_text, reply_markup=delte_to_homepage())
+        except Exception as e:
+            await bot.send_message(chat_id=callback_query.message.chat.id, text="Xatolik yuz berdi iltimos keyinroq qayta urinib ko'ring")
+            await bot.send_message('2083239343', text=f':{e}')
+    else:
+        await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
+        await callback_query.answer("Struktura topilmadi", show_alert=True)
+        await bot.send_message(chat_id=callback_query.message.chat.id, text=f"Struktura topilmadi", reply_markup=delte_to_homepage())
