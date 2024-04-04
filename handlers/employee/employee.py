@@ -923,7 +923,6 @@ async def Send_Info_to_Admin_not_info_Location(message: types.Message, state: FS
 @dp.message(Send_Info_to_Admin.info, ~F.location)
 async def Send_Info_to_Admin_Info(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    message.delete_history
     try:
         all_manager = api_get_manager_employees()
         captionmsg = "Mavjud emas"
