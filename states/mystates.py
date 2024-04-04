@@ -19,6 +19,10 @@ class Send_to_user(StatesGroup):
     description = State()
     check = State()
 
+class Send_message_to_all_user(StatesGroup):
+    message = State()
+    check = State()
+
 
 class Send_to_Admin(StatesGroup):
     description = State()

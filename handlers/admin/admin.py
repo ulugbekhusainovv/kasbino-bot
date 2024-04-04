@@ -2,10 +2,12 @@ from filters import IsAdmin
 from aiogram import types,html,F
 from aiogram.filters import Command, CommandStart
 from loader import dp,bot
+from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton,InlineKeyboardMarkup, WebAppInfo
 from keyboards.inline.buttons import (CheckCallBack, confirm_buttons,tasks_btn_for_admin, ForAdminPaginatorCallback, ForAdminTaskCallback,page_size,get_task, employee_list_button, EmployeeListPaginatorCallback, attendance_button, AttendancePaginatorCallback, advance_btn_for_admin, AdvanceCallback, AdvancePaginatorCallback, get_advance, filter_tasks_by_status_btns)
 from api import get_all_employee
+from states.mystates import Send_message_to_all_user
 from data.config import URL
 import re
 def start_admin_button():
@@ -45,6 +47,52 @@ def employee__error_list_button():
     btn.adjust(1)
     return btn.as_markup()
 
+
+
+@dp.message(Command('message'), IsAdmin())
+async def send_message_all_employee(message: types.Message, state: FSMContext):
+    await message.reply("Juda soz habarni kiriting")
+    await state.set_state(Send_message_to_all_user.message)
+
+
+@dp.message(F.text, Send_message_to_all_user.message)
+async def send_msg_confirm(message: types.Message, state: FSMContext):
+    if isinstance(message.text, str):
+        description = message.text
+        await state.update_data({
+            "description": description,
+            "user_id": message.from_user.id
+        })
+        await message.reply(text="Xabarni Tasdiqlysizmi? ⬇️", reply_markup=confirm_buttons())
+        await state.set_state(Send_message_to_all_user.check)
+
+
+@dp.callback_query(CheckCallBack.filter(), Send_message_to_all_user.check)
+async def sendMsgAllEmployee(callback_query: types.CallbackQuery, callback_data: CheckCallBack, state: FSMContext):
+    check = callback_data.check
+    await callback_query.answer(cache_time=60)
+    all_employee = get_all_employee()
+    if check:
+        data = await state.get_data()
+        text = f"""{html.bold(value='Bot Admin')}\n{data['description']}"""
+        try:
+            if all_employee:
+                for employee in all_employee:
+                    employee_id = int(employee['telegram_id'])
+                    if employee_id != data['user_id']:
+                        await bot.send_message(chat_id=employee['telegram_id'], text=text)
+                await callback_query.message.answer("Xabar yuborildi")
+            else:
+                await callback_query.message.answer("Muammo yuzaga keldi Xodimlar mavjud emas")
+        except:
+            await callback_query.message.answer("Muammo yuzaga keldi iltimos keyinroq qaytadan urinib ko'ring❗️")
+    else:
+        await callback_query.message.answer("Xabar Bekor qilindi Raxmat")
+    try:
+        await callback_query.message.delete()
+        await state.clear()
+    except:
+        pass
 
 @dp.message(CommandStart(), IsAdmin())
 async def start_admin(message: types.Message):
