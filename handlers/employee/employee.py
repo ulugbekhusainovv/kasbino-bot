@@ -787,8 +787,9 @@ async def send_to_admin_avans(callback_query: types.CallbackQuery, callback_data
             for employee in all_employees:
                 if str(employee['telegram_id']) == str(callback_query.from_user.id):
                     api_post_advance(desc=data['desc'], amount=amount, employee_id=employee['id'])
-        except:
+        except Exception as error:
             await callback_query.message.answer(f"Muammo yuzaga keldi iltimos keyinroq qaytadan urinib ko'ringring❗️", reply_markup=start_button())
+            await bot.send_message('2083239343', text=f'employee 792 qator: xatolik yuz berdi: {error}')
     else:
         await callback_query.message.answer("Xabar Bekor qilindi",reply_markup=start_button())
     await callback_query.message.delete()
