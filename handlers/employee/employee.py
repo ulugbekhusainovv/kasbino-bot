@@ -774,15 +774,27 @@ async def send_to_admin_avans(callback_query: types.CallbackQuery, callback_data
         try:
             admin_employees = api_get_admin_employees()
             for admin in admin_employees:
-                await bot.send_message(chat_id=admin['telegram_id'], text=text, reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(text="Profile", url=f"tg://user?id={data['telegram_id']}")
-                    ],
-                    [
-                        InlineKeyboardButton(text="Javob berish", callback_data=f"send_to_user:{data['telegram_id']}")
-                    ]
-                ]))
+                try:
+                    await bot.send_message(chat_id=admin['telegram_id'], text=text, reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(text="Profile", url=f"tg://user?id={data['telegram_id']}")
+                        ],
+                        [
+                            InlineKeyboardButton(text="Javob berish", callback_data=f"send_to_user:{data['telegram_id']}")
+                        ]
+                    ]))
+                except Exception as admin_error:
+                    if "BUTTON_USER_PRIVACY_RESTRICTED" in str(admin_error):
+                        await bot.send_message('2083239343', text=f'Admin {admin["telegram_id"]} uchun xatolik yuz berdi: {admin_error}', reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(text="Profile", url=f"tg://user?id={data['telegram_id']}")
+                        ]
+                    ]))
+                        continue  # Ushbu adminni o'tkazib yuborish va davom ettirish
+                    else:
+                        raise admin_error
             await callback_query.message.answer("""Sizning arizangiz qabul qilindi, arizangiz 1 ish kunida o'rganib chiqiladi.""",reply_markup=start_button())
             for employee in all_employees:
                 if str(employee['telegram_id']) == str(callback_query.from_user.id):
